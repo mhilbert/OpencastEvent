@@ -8,6 +8,8 @@ use srag\Plugins\Opencast\Model\Event\Event;
 use srag\Plugins\Opencast\Model\Series\SeriesRepository;
 use srag\Plugins\Opencast\Model\Series\SeriesAPIRepository;
 
+use srag\Plugins\Opencast\Container\Init;
+
 /**
  * OpencastEventListTableGUI class for event selection
  *
@@ -25,7 +27,7 @@ class OpencastEventListTableGUI extends ilTable2GUI
     /**
      * @var ilObjOpencastEventGUI
      */
-    protected $parent_obj;
+    protected ?object $parent_obj;
     /**
      * @var Container
      */
@@ -51,6 +53,8 @@ class OpencastEventListTableGUI extends ilTable2GUI
      */
     protected $ref_id = 0;
 
+    private \srag\Plugins\Opencast\Container\Container $container;
+
     /**
     * Constructor
     */
@@ -62,13 +66,15 @@ class OpencastEventListTableGUI extends ilTable2GUI
         $this->parent_obj = $a_parent_obj;
         $this->plugin = $a_parent_obj->getPlugin();
         $this->opencast_plugin = ilOpenCastPlugin::getInstance();
-        $opencast_dic = OpencastDIC::getInstance();
+	$opencast_dic = OpencastDIC::getInstance();
+        $this->container = Init::init($DIC);
 
-        if (method_exists($opencast_dic, 'series_repository')) {
-            $this->series_repository = $opencast_dic->series_repository();
-        } else if (!empty($opencastContainer)) {
-            $this->series_repository = $opencastContainer->get(SeriesAPIRepository::class);
-        }
+#       if (method_exists($opencast_dic, 'series_repository')) {
+#           $this->series_repository = $opencast_dic->series_repository();
+#       } else if (!empty($opencastContainer)) {
+#           $this->series_repository = $opencastContainer->get(SeriesAPIRepository::class);
+#       }
+        $this->series_repository = $this->container[SeriesAPIRepository::class];
 
         PluginConfig::setApiSettings();
         $this->setRefId($ref_id);
@@ -216,7 +222,7 @@ class OpencastEventListTableGUI extends ilTable2GUI
             natcasesort($series_options);
         } catch (Exception $th) {
             $series_options = [];
-        }
+	}
 
         return $series_options;
     }

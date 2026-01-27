@@ -4,6 +4,8 @@ use srag\Plugins\Opencast\Model\Event\EventAPIRepository;
 use srag\Plugins\Opencast\DI\OpencastDIC;
 use srag\Plugins\Opencast\Model\Config\PluginConfig;
 
+use srag\Plugins\Opencast\Container\Init;
+
 /**
  * Class ilObjOpencastEventAccess
  *
@@ -16,6 +18,8 @@ class ilObjOpencastEvent extends ilObjectPlugin
     /** @var EventAPIRepository*/
     private $event_repository;
 
+    private \srag\Plugins\Opencast\Container\Container $container;
+
     /**
      * Constructor
      *
@@ -24,15 +28,17 @@ class ilObjOpencastEvent extends ilObjectPlugin
      */
     public function __construct($a_ref_id = 0)
     {
-        global $opencastContainer;
+        global $DIC, $opencastContainer;
         $this->table_name = ilOpencastEventPlugin::TABLE_NAME;
         $opencast_dic = OpencastDIC::getInstance();
+        $this->container = Init::init($DIC);
 
-        if (method_exists($opencast_dic, 'event_repository')) {
-            $this->event_repository = $opencast_dic->event_repository();
-        } else if (!empty($opencastContainer)) {
-            $this->event_repository = $opencastContainer[EventAPIRepository::class];
-        }
+#       if (method_exists($opencast_dic, 'event_repository')) {
+#           $this->event_repository = $opencast_dic->event_repository();
+#       } else if (!empty($opencastContainer)) {
+#           $this->event_repository = $opencastContainer[EventAPIRepository::class];
+#       }
+        $this->event_repository = $this->container[EventAPIRepository::class];
 
         PluginConfig::setApiSettings();
         parent::__construct($a_ref_id);
@@ -49,7 +55,7 @@ class ilObjOpencastEvent extends ilObjectPlugin
     /**
      * Create object
      */
-    public function doCreate(): void
+    public function doCreate(bool $clone_mode = false): void
     {
         global $ilDB;
 

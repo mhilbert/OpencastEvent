@@ -8,6 +8,8 @@ use srag\Plugins\Opencast\Model\Event\Event;
 use srag\Plugins\Opencast\Model\User\xoctUser;
 use srag\Plugins\Opencast\Model\Event\EventAPIRepository;
 
+use srag\Plugins\Opencast\Container\Init;
+
 /**
  * Class ilObjOpencastEventGUI
  *
@@ -26,22 +28,22 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
     protected $dic;
 
     /** @var  ilCtrl */
-    protected $ctrl;
+    protected ilCtrl $ctrl;
 
     /** @var  ilTabsGUI */
-    protected $tabs;
+    protected ilTabsGUI $tabs;
 
     /** @var  ilTemplate */
-    public $tpl;
+    public ilGlobalTemplateInterface $tpl;
 
     /** @var ilTree */
-    public $tree;
+    public ilTree $tree;
 
-    /** @var EventAPIRepository*/
-    private $event_repository;
+    /** @var EventAPIRepository */
+    private EventAPIRepository $event_repository;
 
     /** @var ilOpenCastPlugin */
-    private $opencast_plugin;
+    private ilOpenCastPlugin $opencast_plugin;
 
     /** @var PaellaConfigServiceFactory */
     private $paellaConfigServiceFactory;
@@ -53,6 +55,14 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
      * @var HTTPServices
      */
     private $http;
+
+    /** @var bool */
+    private $change_event;
+
+    /** @var int */
+    private $offset;
+
+    private \srag\Plugins\Opencast\Container\Container $container;
 
     /**
      * Initialisation
@@ -68,19 +78,29 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
         $this->tpl = $DIC['tpl'];
         $this->opencast_plugin = ilOpenCastPlugin::getInstance();
         $opencast_dic = OpencastDIC::getInstance();
+        $this->container = Init::init($DIC);
 
-        if (method_exists($opencast_dic, 'event_repository')) {
-            $this->event_repository = $opencast_dic->event_repository();
-        } else if (!empty($opencastContainer)) {
-            $this->event_repository = $opencastContainer[EventAPIRepository::class];
-        }
+#       if (method_exists($opencast_dic, 'event_repository')) {
+#           $this->event_repository = $opencast_dic->event_repository();
+#       } else if (!empty($opencastContainer)) {
+#           $this->event_repository = $opencastContainer[EventAPIRepository::class];
+#       }
+        $this->event_repository = $this->container[EventAPIRepository::class];
 
         $this->paellaConfigServiceFactory = $opencast_dic->paella_config_service_factory();
         $this->paellaConfigService = $this->paellaConfigServiceFactory->get();
         PluginConfig::setApiSettings();
         $this->ref_id = (int) $this->http->request()->getQueryParams()['ref_id'] ?? null;
-        $this->change_event = (bool) $this->http->request()->getQueryParams()['change_event'] ?? false;
-        $this->offset = (int) $this->http->request()->getQueryParams()['offset'] ?? 0;
+        if (array_key_exists('change_event', $this->http->request()->getQueryParams())) {
+            $this->change_event = (bool) $this->http->request()->getQueryParams()['change_event'] ?? false;
+        } else {
+            $this->change_event = false;
+        }
+        if (array_key_exists('offset', $this->http->request()->getQueryParams())) {
+            $this->offset = (int) $this->http->request()->getQueryParams()['offset'] ?? 0;
+        } else {
+            $this->offset = 0;
+        }
 
         $this->tpl->addJavaScript($this->getPlugin()->getDirectory() . '/js/opencastEvent/dist/index.js');
     }
@@ -169,7 +189,7 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
     {
         // To prevent using it out of course or groups.
         if (!$this->checkParentGroupCourse()) {
-            ilUtil::sendFailure($this->txt('msg_creation_failed'), true);
+            $this->tpl->setOnScreenMessage('failure', $this->txt('msg_creation_failed'), true);
             $this->ctrl->redirectByClass('ilDashboardGUI', '');
         }
 
@@ -223,7 +243,7 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
 
             $newEventObj = $this->createOpencastEventObject($form);
             if (!empty($newEventObj)) {
-                ilUtil::sendSuccess($this->txt('create_successful'), true);
+                $this->tpl->setOnScreenMessage('success', $this->txt('create_successful'), true);
 
                 $args = func_get_args();
                 if ($args) {
@@ -233,8 +253,8 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
                 }
                 return;
             } else {
-                ilUtil::sendFailure($this->txt('msg_creation_failed'));
-            }
+                 $this->tpl->setOnScreenMessage('failure', $this->txt('msg_creation_failed'));
+	    }
         }
 
         $this->ctrl->redirect($this, 'create');
@@ -273,8 +293,8 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
         $form = $this->initEventForm(false);
         if ($this->checkInput($form)) {
             $this->updateOpencastEventObject($form);
-            ilUtil::sendSuccess($this->txt('update_successful'), true);
-        }
+            $this->tpl->setOnScreenMessage('success', $this->txt('update_successful'), true);
+	}
 
         $this->ctrl->redirect($this, 'editEvent');
     }
@@ -330,8 +350,8 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
         try {
             $data = PlayerDataBuilderFactory::getInstance()->getBuilder($event)->buildStreamingData();
         } catch (Exception $e) {
-            ilUtil::sendFailure($e->getMessage());
-            echo $e->getMessage();
+            $this->tpl->setOnScreenMessage('failure', $e->getMessage());
+	    echo $e->getMessage();
             exit;
         }
 
@@ -470,7 +490,7 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
             }
 
             // auto rating
-            $this->handleAutoRating($newObj);
+#           $this->handleAutoRating($newObj);
 
             // set default permissions
             ilObjOpencastEventAccess::setDefaultPerms($newObj->getRefId());
@@ -554,8 +574,8 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
         // We need event_id in any case!
         $event_id = $form->getInput('event_id');
         if (empty($event_id)) {
-            ilUtil::sendFailure($this->txt('no_event_id'), true);
-            return false;
+            $this->tpl->setOnScreenMessage('failure', $this->txt('no_event_id'), true);
+	    return false;
         }
 
         return $return;
@@ -927,8 +947,8 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
         } catch (Exception $e) {
             $events = [];
             if ($e->getCode() !== 403) {
-                ilUtil::sendFailure($e->getMessage());
-            }
+                $this->tpl->setOnScreenMessage('failure', $e->getMessage());
+	    }
         }
         return $events;
     }
@@ -946,8 +966,8 @@ class ilObjOpencastEventGUI extends ilObjectPluginGUI
         try {
             $event = $this->event_repository->find($event_id);
         } catch (Exception $e) {
-            ilUtil::sendFailure($e->getMessage());
-        }
+            $this->tpl->setOnScreenMessage('failure', $e->getMessage());
+	}
         return $event;
     }
 }

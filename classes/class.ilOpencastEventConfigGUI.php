@@ -4,6 +4,8 @@
  *
  * @author Farbod Zamani Boroujeni <zamani@elan-ev.de>
  * @extends ilPluginConfigGUI
+ *
+ * @ilCtrl_IsCalledBy ilOpencastEventConfigGUI: ilObjComponentSettingsGUI
  */
 class ilOpencastEventConfigGUI extends ilPluginConfigGUI
 {
@@ -138,10 +140,7 @@ class ilOpencastEventConfigGUI extends ilPluginConfigGUI
                     }
                 }
             }
-            ilUtil::sendSuccess(
-                $this->txt("saved"),
-                true
-            );
+	    $this->main_tpl->setOnScreenMessage('success', $this->txt("saved"), true);
             $this->ctrl->redirect($this, "configure");
         } else {
             $this->form->setValuesByPost();
